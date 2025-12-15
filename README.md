@@ -1,10 +1,12 @@
-# TS file merger
-This is a simple static project, and thecurrent entry file is `index.html`.
+# TS file merger (TS文件合并工具)
+This is a simple static project, Merge multiple downloaded TS files into a single MP4 file.
 
-**Purpose**
+这是一个简单的静态页面项目，用来合并多个下载的TS文件成为一个mp4
 
-- Proviede a static page example
+**Purpose（目的）**
 
-**Quick Preview**
+- Proviede a static page example. 提供一个静态页面示例。
 
-- open `index.html` in the browser
+**Quick Start（快速开始）**
+
+- open `index.html` in the browser. 在浏览器打开`index.html`。
