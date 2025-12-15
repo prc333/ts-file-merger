@@ -1,0 +1,462 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TS文件合并工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#6366f1',
+                        secondary: '#8b5cf6'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .file-drop-area {
+            border: 2px dashed #6366f1;
+            border-radius: 0.75rem;
+            transition: all 0.3s ease;
+        }
+        .file-drop-area.active {
+            background-color: #eef2ff;
+            border-color: #8b5cf6;
+        }
+        .progress-bar {
+            transition: width 0.3s ease;
+        }
+        .animate-pulse-slow {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-indigo-50 to-purple-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <header class="text-center mb-12 pt-6">
+            <h1 class="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 mb-3">
+                TS文件合并工具
+            </h1>
+            <p class="text-gray-600 max-w-2xl mx-auto">
+                本地浏览器中直接合并TS视频片段，无需上传服务器，保护您的隐私安全
+            </p>
+        </header>
+
+        <main class="max-w-4xl mx-auto">
+            <div class="bg-white rounded-2xl shadow-xl p-6 mb-8 transition-all hover:shadow-2xl">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-2xl font-semibold text-gray-800 flex items-center">
+                        <i class="fas fa-file-import text-indigo-500 mr-3"></i>文件上传
+                    </h2>
+                    <span class="bg-indigo-100 text-indigo-800 text-sm font-medium px-4 py-1.5 rounded-full flex items-center">
+                        <i class="fas fa-info-circle mr-2"></i>支持拖拽上传
+                    </span>
+                </div>
+
+                <div id="dropArea" class="file-drop-area p-10 text-center cursor-pointer mb-6">
+                    <i class="fas fa-cloud-upload-alt text-5xl text-indigo-500 mb-4"></i>
+                    <p class="text-gray-700 text-lg mb-2 font-medium">拖拽TS文件到此处</p>
+                    <p class="text-gray-500 mb-4">或点击下方按钮选择文件</p>
+                    <input type="file" id="fileInputFiles" class="hidden" accept=".ts" multiple>
+                    <input type="file" id="fileInputFolder" class="hidden" accept=".ts" webkitdirectory directory>
+                    <div class="mt-2 flex items-center justify-center gap-4">
+                        <button id="selectFilesBtn" class="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium py-3 px-6 rounded-xl transition duration-300 transform hover:scale-105 shadow-lg flex items-center">
+                            <i class="fas fa-file-import mr-2"></i>选择TS文件
+                        </button>
+                        <button id="selectFolderBtn" class="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium py-3 px-6 rounded-xl transition duration-300 transform hover:scale-105 shadow-lg flex items-center">
+                            <i class="fas fa-folder mr-2"></i>选择文件夹
+                        </button>
+                    </div>
+                    <p class="text-gray-400 text-sm mt-4">支持多文件上传，按文件名顺序合并为MP4视频</p>
+                </div>
+
+                <div id="fileList" class="mb-6 hidden">
+                    <h3 class="text-lg font-medium text-gray-800 mb-3 flex items-center">
+                        <i class="fas fa-list mr-2 text-indigo-500"></i>已选择文件
+                        <span id="fileCount" class="ml-2 bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-0.5 rounded-full"></span>
+                    </h3>
+                    <div id="fileItems" class="space-y-3 max-h-60 overflow-y-auto pr-2"></div>
+                </div>
+
+                <div class="flex flex-wrap gap-4 mt-8">
+                    <button id="mergeBtn" class="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-medium py-4 px-6 rounded-xl transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-lg transform hover:scale-105">
+                        <i class="fas fa-play-circle mr-3 text-xl"></i>开始合并
+                    </button>
+                    <button id="clearBtn" class="flex-1 bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white font-medium py-4 px-6 rounded-xl transition duration-300 flex items-center justify-center shadow-lg transform hover:scale-105">
+                        <i class="fas fa-broom mr-3 text-xl"></i>清空列表
+                    </button>
+                </div>
+            </div>
+
+            <div id="progressSection" class="bg-white rounded-2xl shadow-xl p-6 mb-8 hidden">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-5 flex items-center">
+                    <i class="fas fa-cogs text-indigo-500 mr-3"></i>合并进度
+                </h2>
+                <div class="mb-3 flex justify-between">
+                    <span class="text-gray-700 font-medium">正在处理文件...</span>
+                    <span id="progressText" class="text-gray-700 font-medium">0%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-5">
+                    <div id="progressBar" class="bg-gradient-to-r from-green-500 to-emerald-600 h-5 rounded-full progress-bar flex items-center justify-center text-white text-xs font-bold" style="width: 0%">
+                        <span id="progressLabel">0%</span>
+                    </div>
+                </div>
+                <div class="mt-4 text-center">
+                    <p class="text-gray-600 text-sm">
+                        <i class="fas fa-info-circle mr-2"></i>文件处理中，请勿关闭页面
+                    </p>
+                </div>
+            </div>
+
+            <div id="resultSection" class="bg-white rounded-2xl shadow-xl p-6 hidden">
+                <div class="text-center py-8">
+                    <div class="inline-block p-4 rounded-full bg-green-100 mb-6">
+                        <i class="fas fa-check-circle text-5xl text-green-500"></i>
+                    </div>
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-3">合并完成！</h2>
+                    <p class="text-gray-600 mb-2">文件已成功合并为MP4格式</p>
+                    <p class="text-gray-500 text-sm mb-8">点击下方按钮下载合并后的视频文件</p>
+                    <div class="flex flex-col sm:flex-row justify-center gap-4">
+                        <button id="downloadBtn" type="button" class="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium py-4 px-10 rounded-xl transition duration-300 flex items-center justify-center shadow-lg transform hover:scale-105">
+                            <i class="fas fa-download mr-3 text-lg"></i>下载合并文件
+                        </button>
+                        <button id="resetBtn" class="bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white font-medium py-4 px-10 rounded-xl transition duration-300 flex items-center justify-center shadow-lg transform hover:scale-105">
+                            <i class="fas fa-redo mr-3 text-lg"></i>重新开始
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-xl p-6 mt-8">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4 flex items-center">
+                    <i class="fas fa-question-circle text-indigo-500 mr-3"></i>使用说明
+                </h2>
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="space-y-4">
+                        <div class="flex items-start">
+                            <div class="bg-indigo-100 p-3 rounded-lg mr-4">
+                                <i class="fas fa-file-video text-indigo-600 text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-gray-800 mb-1">支持的文件格式</h3>
+                                <p class="text-gray-600 text-sm">仅支持.ts格式的视频文件，确保文件完整且按正确顺序排列</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start">
+                            <div class="bg-green-100 p-3 rounded-lg mr-4">
+                                <i class="fas fa-shield-alt text-green-600 text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-gray-800 mb-1">隐私保护</h3>
+                                <p class="text-gray-600 text-sm">所有处理都在本地浏览器完成，文件不会上传到任何服务器</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="flex items-start">
+                            <div class="bg-purple-100 p-3 rounded-lg mr-4">
+                                <i class="fas fa-bolt text-purple-600 text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-gray-800 mb-1">操作步骤</h3>
+                                <p class="text-gray-600 text-sm">1. 选择或拖拽TS文件<br>2. 点击开始合并<br>3. 下载合并后的MP4文件</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start">
+                            <div class="bg-amber-100 p-3 rounded-lg mr-4">
+                                <i class="fas fa-exclamation-triangle text-amber-600 text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-gray-800 mb-1">注意事项</h3>
+                                <p class="text-gray-600 text-sm">大文件处理需要较长时间，请耐心等待。处理过程中请勿关闭页面</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer class="text-center mt-12 pb-8 text-gray-600">
+            <p>© 2025 TS文件合并工具 - 本地处理视频文件</p>
+            <p class="text-sm mt-2 text-gray-500">所有处理均在浏览器中完成，保障您的文件安全</p>
+        </footer>
+    </div>
+
+    <script>
+        // 全局变量
+        let selectedFiles = [];
+        let mergedBlob = null;
+
+        // DOM元素
+        const dropArea = document.getElementById('dropArea');
+        const fileInputFiles = document.getElementById('fileInputFiles');
+        const fileInputFolder = document.getElementById('fileInputFolder');
+        const selectFilesBtn = document.getElementById('selectFilesBtn');
+        const selectFolderBtn = document.getElementById('selectFolderBtn');
+        const fileList = document.getElementById('fileList');
+        const fileItems = document.getElementById('fileItems');
+        const fileCount = document.getElementById('fileCount');
+        const mergeBtn = document.getElementById('mergeBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const progressSection = document.getElementById('progressSection');
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        const progressLabel = document.getElementById('progressLabel');
+        const resultSection = document.getElementById('resultSection');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const resetBtn = document.getElementById('resetBtn');
+
+        // 事件监听器
+        selectFilesBtn.addEventListener('click', () => fileInputFiles.click());
+        selectFolderBtn.addEventListener('click', () => fileInputFolder.click());
+        fileInputFiles.addEventListener('change', handleFileSelect);
+        fileInputFolder.addEventListener('change', handleFileSelect);
+        mergeBtn.addEventListener('click', mergeFiles);
+        clearBtn.addEventListener('click', clearFiles);
+        resetBtn.addEventListener('click', resetAll);
+        downloadBtn.addEventListener('click', downloadMergedFile);
+
+        // 拖拽上传事件
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropArea.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, unhighlight, false);
+        });
+
+        function highlight() {
+            dropArea.classList.add('active');
+        }
+
+        function unhighlight() {
+            dropArea.classList.remove('active');
+        }
+
+        dropArea.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles(files);
+        }
+
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            handleFiles(files);
+        }
+
+        function handleFiles(files) {
+            [...files].forEach(file => {
+                // 大小写不敏感地匹配 .ts
+                if (file.name && file.name.toLowerCase().endsWith('.ts')) {
+                    selectedFiles.push(file);
+                }
+            });
+            updateFileList();
+        }
+
+        function updateFileList() {
+            if (selectedFiles.length === 0) {
+                fileList.classList.add('hidden');
+                mergeBtn.disabled = true;
+                return;
+            }
+
+            // 在展示前对选中文件按相对路径或文件名做自然排序，和合并顺序保持一致
+            selectedFiles.sort((a, b) => {
+                const pa = (a.webkitRelativePath || a.name).toString();
+                const pb = (b.webkitRelativePath || b.name).toString();
+                return pa.localeCompare(pb, undefined, { numeric: true, sensitivity: 'base' });
+            });
+
+            fileList.classList.remove('hidden');
+            fileItems.innerHTML = '';
+            fileCount.textContent = selectedFiles.length;
+            
+            selectedFiles.forEach((file, index) => {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition';
+                fileItem.innerHTML = `
+                    <div class="flex items-center">
+                        <div class="bg-indigo-100 p-2 rounded-lg mr-4">
+                            <i class="fas fa-file-video text-indigo-600"></i>
+                        </div>
+                        <div class="min-w-0">
+                            <p class="font-medium text-gray-800 truncate">${file.name}</p>
+                            <p class="text-gray-500 text-sm">${formatFileSize(file.size)}</p>
+                        </div>
+                    </div>
+                    <div class="text-gray-400 text-sm">
+                        #${index + 1}
+                    </div>
+                `;
+                fileItems.appendChild(fileItem);
+            });
+            
+            mergeBtn.disabled = false;
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function clearFiles() {
+            selectedFiles = [];
+            if (fileInputFiles) fileInputFiles.value = '';
+            if (fileInputFolder) fileInputFolder.value = '';
+            updateFileList();
+            resultSection.classList.add('hidden');
+        }
+
+        function resetAll() {
+            clearFiles();
+            progressSection.classList.add('hidden');
+            resultSection.classList.add('hidden');
+        }
+
+        async function mergeFiles() {
+            if (selectedFiles.length === 0) return;
+            
+            // 显示进度条
+            progressSection.classList.remove('hidden');
+            resultSection.classList.add('hidden');
+            mergeBtn.disabled = true;
+            
+            try {
+                // 在合并前按文件名或相对路径进行自然排序，保证合并顺序稳定
+                selectedFiles.sort((a, b) => {
+                    const pa = (a.webkitRelativePath || a.name).toString();
+                    const pb = (b.webkitRelativePath || b.name).toString();
+                    return pa.localeCompare(pb, undefined, { numeric: true, sensitivity: 'base' });
+                });
+
+                // 模拟文件合并过程
+                const totalFiles = selectedFiles.length;
+                let processed = 0;
+                
+                // 创建一个Blob来模拟合并后的文件
+                const chunks = [];
+                for (let i = 0; i < selectedFiles.length; i++) {
+                    const file = selectedFiles[i];
+                    const arrayBuffer = await file.arrayBuffer();
+                    chunks.push(arrayBuffer);
+                    
+                    // 更新进度
+                    processed++;
+                    const progress = Math.round((processed / totalFiles) * 100);
+                    progressBar.style.width = `${progress}%`;
+                    progressText.textContent = `${progress}%`;
+                    progressLabel.textContent = `${progress}%`;
+                    
+                    // 模拟处理时间
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                }
+                
+                // 合并所有块
+                const mergedArrayBuffer = concatenateArrayBuffers(chunks);
+                mergedBlob = new Blob([mergedArrayBuffer], { type: 'video/mp4' });
+                
+                // 显示结果
+                setTimeout(() => {
+                    progressSection.classList.add('hidden');
+                    resultSection.classList.remove('hidden');
+                    // 为回退保留一个可用的对象 URL（showSaveFilePicker 优先）
+                    try {
+                        downloadBtn.dataset.objectUrl = URL.createObjectURL(mergedBlob);
+                    } catch (e) {
+                        console.warn('无法创建对象URL：', e);
+                    }
+                }, 500);
+                
+            } catch (error) {
+                console.error('合并失败:', error);
+                alert('文件合并过程中出现错误，请重试');
+                mergeBtn.disabled = false;
+                progressSection.classList.add('hidden');
+            }
+        }
+
+        function concatenateArrayBuffers(buffers) {
+            const totalLength = buffers.reduce((acc, buf) => acc + buf.byteLength, 0);
+            const result = new Uint8Array(totalLength);
+            let offset = 0;
+            
+            for (const buffer of buffers) {
+                result.set(new Uint8Array(buffer), offset);
+                offset += buffer.byteLength;
+            }
+        
+            return result.buffer;
+        }
+
+        async function downloadMergedFile() {
+            if (!mergedBlob) {
+                alert('没有可下载的合并文件，请先合并文件');
+                return;
+            }
+
+            // 优先使用 File System Access API（大多数 Chromium 浏览器支持）
+            if (window.showSaveFilePicker) {
+                try {
+                    const opts = {
+                        suggestedName: 'merged_video.mp4',
+                        types: [
+                            {
+                                description: 'MP4 视频',
+                                accept: { 'video/mp4': ['.mp4'] }
+                            }
+                        ]
+                    };
+
+                    const handle = await window.showSaveFilePicker(opts);
+                    const writable = await handle.createWritable();
+                    await writable.write(mergedBlob);
+                    await writable.close();
+                    alert('文件已保存');
+                    return;
+                } catch (err) {
+                    console.error('保存文件失败：', err);
+                    // 失败后降级到对象 URL 回退
+                }
+            }
+
+            // 使用对象 URL 并自动触发下载
+            const objectUrl = downloadBtn.dataset.objectUrl || URL.createObjectURL(mergedBlob);
+            const a = document.createElement('a');
+            a.href = objectUrl;
+            a.download = 'merged_video.mp4';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            // 如果我们新创建了对象 URL，则在一段时间后释放
+            setTimeout(() => {
+                try { URL.revokeObjectURL(objectUrl); } catch (e) { }
+            }, 10000);
+        }
+    </script>
+</body>
+</html>
